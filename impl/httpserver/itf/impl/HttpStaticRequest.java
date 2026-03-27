@@ -9,26 +9,42 @@ import httpserver.itf.HttpResponse;
  * This class allows to build an object representing an HTTP static request
  */
 public class HttpStaticRequest extends HttpRequest {
-	static final String DEFAULT_FILE = "index.html";
+	static final String DEFAULT_FILE = "FILES/index.html";
 
 	public HttpStaticRequest(HttpServer hs, String method, String ressname) throws IOException {
 		super(hs, method, ressname);
 	}
 
 	public void process(HttpResponse resp) throws Exception {
-		// TO COMPLETE
 		String root = super.m_hs.getFolder().getAbsolutePath();
 		String requested = super.m_ressname;
 
-		if (requested == null || requested.length() == 0 || requested.equals("/")) {
-			requested = "/" + DEFAULT_FILE;
+		if (requested == null || requested.length() == 0) {
+			requested = "/";
+		}
+
+		int q = requested.indexOf('?');
+		if (q >= 0) {
+			requested = requested.substring(0, q);
+		}
+
+		
+		if (requested.equals("/") || requested.endsWith("/")) {
+			requested = requested + DEFAULT_FILE;
 		}
 
 		String path = root + requested;
 		java.io.File f = new java.io.File(path);
 
 		if (f.isDirectory()) {
-			resp.setReplyError(400, path + " is a directory");
+			java.io.File index = new java.io.File(f, DEFAULT_FILE);
+			if (index.exists() && index.isFile() && index.canRead()) {
+				f = index;
+				path = f.getAbsolutePath();
+			} else {
+				resp.setReplyError(404, "Not Found");
+				return;
+			}
 		}
 
 		if (!f.exists() || !f.isFile()) {
@@ -53,6 +69,5 @@ public class HttpStaticRequest extends HttpRequest {
 
 	}
 }
-
 
 

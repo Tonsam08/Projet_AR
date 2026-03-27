@@ -14,10 +14,35 @@ import httpserver.itf.HttpSession;
 
 public class HttpRicmletRequestImpl extends HttpRicmletRequest {
 	private Map<String, String> m_args;
+	private Map<String, String> m_cookies;
 
 	public HttpRicmletRequestImpl(HttpServer hs, String method, String ressname, BufferedReader br) throws IOException {
 		super(hs, method, ressname, br);
 		m_args = parseArgs(ressname);
+		m_cookies = new HashMap<>();
+		String ligne_header = br.readLine();
+		while (ligne_header != null && ligne_header.length() != 0) {
+			int cookie_start = ligne_header.indexOf(":");
+			if (cookie_start < 0) {
+				ligne_header = br.readLine();
+				continue;
+			}
+
+			String headerName = ligne_header.substring(0, cookie_start).trim();
+			String headerValue = ligne_header.substring(cookie_start + 1).trim();
+
+			if (headerName.equalsIgnoreCase("Cookie")) {
+				String[] cookies = headerValue.split(";");
+
+				for (String p : cookies) {
+					String[] name_values = p.trim().split("=", 2);
+					if (name_values.length == 2)
+						m_cookies.put(name_values[0].trim(), decode(name_values[1].trim()));
+
+				}
+			}
+			ligne_header = br.readLine();
+		}
 	}
 
 	@Override
@@ -33,7 +58,7 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
 
 	@Override
 	public String getCookie(String name) {
-		return null;
+		return m_cookies.get(name);
 	}
 
 	@Override
@@ -74,7 +99,13 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
 			}
 			String[] kv = pair.split("=", 2);
 			String key = decode(kv[0]);
-			String value = kv.length > 1 ? decode(kv[1]) : "";
+			String value;
+			if (kv.length > 1) {
+				value = decode(kv[1]);
+			} else {
+				value = "";
+			}
+
 			args.put(key, value);
 		}
 		return args;
@@ -82,7 +113,7 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
 
 	private static String decode(String value) {
 		try {
-			return java.net.URLDecoder.decode(value, java.nio.charset.StandardCharsets.UTF_8.name());
+			return java.net.URLDecoder.decode(value, "UTF-8");
 		} catch (Exception e) {
 			return value;
 		}
