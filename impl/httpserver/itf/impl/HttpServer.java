@@ -64,7 +64,15 @@ public class HttpServer {
 		Thread cleaner = new Thread(() -> {
 			while (true) {
 				long now = System.currentTimeMillis();
-				m_sessions.entrySet().removeIf(en -> now - en.getValue().lastAccess > SESSION_TIMEOUT_MS);
+				//m_sessions.entrySet().removeIf(en -> now - en.getValue().lastAccess > SESSION_TIMEOUT_MS);
+				synchronized (this){
+{}				for (Map.Entry<String, SessionEntry> en : m_sessions.entrySet()) {
+					if (now - en.getValue().lastAccess > SESSION_TIMEOUT_MS) {
+						m_sessions.remove(en.getKey(), en.getValue());
+					}
+				}
+			}
+
 				try {
 					Thread.sleep(CLEANUP_PERIOD_MS);
 				} catch (InterruptedException ignored) {
@@ -80,7 +88,7 @@ public class HttpServer {
 		return m_folder;
 	}
 
-	public HttpRicmlet getInstance(String clsname)
+	public synchronized	 HttpRicmlet getInstance(String clsname)
 			throws InstantiationException, IllegalAccessException, ClassNotFoundException, MalformedURLException,
 			IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
 
@@ -102,7 +110,7 @@ public class HttpServer {
 			return created;
 	}
 
-	public HttpSession getSession(String id) {
+	public synchronized HttpSession getSession(String id) {
 		if (id == null)
 			return null;
 		SessionEntry e = m_sessions.get(id);
@@ -119,7 +127,7 @@ public class HttpServer {
 
 	}
 
-	public HttpSession createSession() {
+	public synchronized HttpSession createSession() {
 		long now = System.currentTimeMillis();
 		HttpSession s = new HttpSessionimpl(UUID.randomUUID().toString());
 		m_sessions.put(s.getId(), new SessionEntry(s, now));
