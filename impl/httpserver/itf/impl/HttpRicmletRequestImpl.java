@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 import httpserver.itf.HttpResponse;
 import httpserver.itf.HttpRicmlet;
@@ -13,8 +12,11 @@ import httpserver.itf.HttpRicmletResponse;
 import httpserver.itf.HttpSession;
 
 public class HttpRicmletRequestImpl extends HttpRicmletRequest {
+	private static final String SESSION_COOKIE = "RICMSESSIONID";
 	private Map<String, String> m_args;
 	private Map<String, String> m_cookies;
+	private HttpRicmletResponse m_currentResponse;
+	private HttpSession m_cachedSession;
 
 	public HttpRicmletRequestImpl(HttpServer hs, String method, String ressname, BufferedReader br) throws IOException {
 		super(hs, method, ressname, br);
@@ -47,8 +49,23 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
 
 	@Override
 	public HttpSession getSession() {
+		if (m_cachedSession != null) {
+			return m_cachedSession;
+		}
 
-		return new HttpSessionimpl(UUID.randomUUID().toString());
+		String sid = getCookie(SESSION_COOKIE);
+		HttpSession session = m_hs.getSession(sid);
+		if (session != null) {
+			m_cachedSession = session;
+			return session;
+		}
+
+		session = m_hs.createSession();
+		m_cachedSession = session;
+		if (m_currentResponse != null) {
+			m_currentResponse.setCookie(SESSION_COOKIE, session.getId());
+		}
+		return session;
 	}
 
 	@Override
@@ -67,6 +84,7 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
 			resp.setReplyError(500, "Internal Server Error");
 			return;
 		}
+		m_currentResponse = (HttpRicmletResponse) resp;
 
 		String clsname = m_ressname;
 		int q = clsname.indexOf('?');
@@ -82,7 +100,7 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
 		}
 
 		HttpRicmlet ricmlet = m_hs.getInstance(clsname);
-		ricmlet.doGet(this, (HttpRicmletResponse) resp);
+		ricmlet.doGet(this, m_currentResponse);
 	}
 
 	private static Map<String, String> parseArgs(String ressname) {
