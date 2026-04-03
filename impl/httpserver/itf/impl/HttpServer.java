@@ -65,13 +65,13 @@ public class HttpServer {
 			while (true) {
 				long now = System.currentTimeMillis();
 				//m_sessions.entrySet().removeIf(en -> now - en.getValue().lastAccess > SESSION_TIMEOUT_MS);
-				synchronized (this){
-{}				for (Map.Entry<String, SessionEntry> en : m_sessions.entrySet()) {
-					if (now - en.getValue().lastAccess > SESSION_TIMEOUT_MS) {
-						m_sessions.remove(en.getKey(), en.getValue());
+				synchronized (m_sessions) {
+					for (Map.Entry<String, SessionEntry> en : m_sessions.entrySet()) {
+						if (now - en.getValue().lastAccess > SESSION_TIMEOUT_MS) {
+							m_sessions.remove(en.getKey(), en.getValue());
+						}
 					}
 				}
-			}
 
 				try {
 					Thread.sleep(CLEANUP_PERIOD_MS);
@@ -88,11 +88,14 @@ public class HttpServer {
 		return m_folder;
 	}
 
-	public synchronized	 HttpRicmlet getInstance(String clsname)
+	public synchronized HttpRicmlet getInstance(String clsname)
 			throws InstantiationException, IllegalAccessException, ClassNotFoundException, MalformedURLException,
 			IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
 
-		HttpRicmlet existing = m_ricmlets.get(clsname);
+		HttpRicmlet existing;
+		synchronized (m_ricmlets) {
+			existing = m_ricmlets.get(clsname);
+		}
 		if (existing != null) {
 			return existing;
 		}
@@ -103,7 +106,10 @@ public class HttpServer {
 		}
 
 		HttpRicmlet created = (HttpRicmlet) o;
-		HttpRicmlet prev = m_ricmlets.putIfAbsent(clsname, created);
+		HttpRicmlet prev;
+		synchronized (m_ricmlets) {
+			prev = m_ricmlets.putIfAbsent(clsname, created);
+		}
 		if (prev != null)
 			return prev;
 		else
@@ -113,13 +119,18 @@ public class HttpServer {
 	public synchronized HttpSession getSession(String id) {
 		if (id == null)
 			return null;
-		SessionEntry e = m_sessions.get(id);
+		SessionEntry e;
+		synchronized (m_sessions) {
+			e = m_sessions.get(id);
+		}
 		if (e == null)
 			return null;
 
 		long now = System.currentTimeMillis();
 		if (now - e.lastAccess > SESSION_TIMEOUT_MS) {
-			m_sessions.remove(id, e); // détruite
+			synchronized (m_sessions) {
+				m_sessions.remove(id, e); // détruite
+			}
 			return null;
 		}
 		e.lastAccess = now;
@@ -130,7 +141,9 @@ public class HttpServer {
 	public synchronized HttpSession createSession() {
 		long now = System.currentTimeMillis();
 		HttpSession s = new HttpSessionimpl(UUID.randomUUID().toString());
-		m_sessions.put(s.getId(), new SessionEntry(s, now));
+		synchronized (m_sessions) {
+			m_sessions.put(s.getId(), new SessionEntry(s, now));
+		}
 		return s;
 
 	}

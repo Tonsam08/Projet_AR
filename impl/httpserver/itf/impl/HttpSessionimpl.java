@@ -1,34 +1,37 @@
 package httpserver.itf.impl;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import httpserver.itf.HttpSession;
 
 public class HttpSessionimpl implements HttpSession {
-    String Id;
-    private Map<String,Object> m_values;
+    private final String m_id;
+    private final ConcurrentHashMap<String, Object> m_values;
 
     public HttpSessionimpl(String id) {
-		Id = id;
-		m_values = new HashMap<String, Object>();
+		m_id = id;
+		m_values = new ConcurrentHashMap<String, Object>();
         
 	}
 
     @Override
     public String getId() {
-        return Id;
+        return m_id;
     }
 
     @Override
     public Object getValue(String key) {
-       return m_values.get(key);
+        synchronized (m_values) {
+            return m_values.get(key);
+        }
     }
 
     @Override
     public void setValue(String key, Object value) {
-        m_values.put(key, value);
+        synchronized (m_values) {
+            m_values.put(key, value);
+        }
     }
     
 }
